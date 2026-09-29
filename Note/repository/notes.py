@@ -1,17 +1,41 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from .. import models, schemas
+import json
+from ..redis_client import redis_client
 
-# Get all notes for current user with pagination
-def get_all(db: Session, limit: int, skip: int, current_user: models.User):  # updated
-    notes = (
-        db.query(models.Note)
-        .filter(models.Note.user_id == current_user.id)
-        .limit(limit)
-        .offset(skip)
-        .all()
-    )
+def clear_user_cache(user_id: int):
+    keys = redis_client.keys(f"notes:user:{user_id}:*")
+    if keys:
+        redis_client.delete(*keys)
+
+
+def get_all(db: Session, limit: int, skip: int, search: str, current_user: models.User):
+    cache_key = f"notes:user:{current_user.id}:limit:{limit}:skip:{skip}:search:{search}"
+    
+    cached = redis_client.get(cache_key)
+
+    if cached:
+        return json.loads(cached)
+
+    query = db.query(models.Note).filter(models.Note.user_id == current_user.id)
+
+    if search:
+        query = query.filter(
+            (models.Note.title.ilike(f"%{search}%")) |
+            (models.Note.body.ilike(f"%{search}%"))
+        )
+
+    notes = query.limit(limit).offset(skip).all()
+
+    notes_data = [
+        {"id": n.id, "title": n.title, "body": n.body, "created_at": str(n.created_at)}
+        for n in notes
+    ]
+    redis_client.setex(cache_key, 60, json.dumps(notes_data))
+
     return notes
+    
 
 # Create a new note
 def create(request: schemas.NoteCreate, db: Session, current_user: models.User):  # updated
@@ -22,6 +46,7 @@ def create(request: schemas.NoteCreate, db: Session, current_user: models.User):
     )
     db.add(new_note)
     db.commit()
+    clear_user_cache(current_user.id)
     db.refresh(new_note)
     return new_note
 
@@ -40,6 +65,7 @@ def destroy(id: int, db: Session, current_user: models.User):  # updated
 
     note_query.delete(synchronize_session=False)
     db.commit()
+    clear_user_cache(current_user.id)
     return {"detail": "Note deleted"}
 
 # Update a note by id (only if it belongs to current user)
@@ -57,6 +83,7 @@ def update(id: int, request: schemas.NoteCreate, db: Session, current_user: mode
 
     note_query.update(request.dict())
     db.commit()
+    clear_user_cache(current_user.id)
     db.refresh(note)
     return note
 

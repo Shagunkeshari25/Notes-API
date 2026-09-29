@@ -11,15 +11,16 @@ router = APIRouter(
 
 get_db = database.get_db
 
-# Get all notes with pagination
+# Get all notes with pagination and search
 @router.get("/", response_model=List[schemas.ShowNote])
 def all(
     limit: int = 10,
     skip: int = 0,
+    search: str = "",            
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.get_current_user)  # <-- change here
+    current_user: models.User = Depends(oauth2.get_current_user)
 ):
-    return notes.get_all(db, limit, skip, current_user)
+    return notes.get_all(db, limit, skip, search, current_user)   
 
 
 # Create a new note
@@ -27,7 +28,7 @@ def all(
 def create(
     request: schemas.NoteCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.get_current_user)  # <-- change here
+    current_user: models.User = Depends(oauth2.get_current_user)  
 ):
     return notes.create(request, db, current_user)
 

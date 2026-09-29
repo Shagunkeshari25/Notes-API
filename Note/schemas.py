@@ -1,5 +1,5 @@
 from typing import List, Optional, ForwardRef
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
 # Note Schemas
@@ -30,6 +30,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    email: EmailStr
 
 class ShowUser(UserBase):
     id: int
