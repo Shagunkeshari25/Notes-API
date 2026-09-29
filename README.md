@@ -1,59 +1,182 @@
-# Notes API with FastAPI
+# Notes API
 
-A secure and fully functional **Notes API** built with **FastAPI** and **SQLite**, allowing users to register, login, and manage their personal notes.
-
----
+A backend REST API for creating, managing, and securely accessing personal notes. The project is built with **FastAPI** and uses **PostgreSQL** for persistent storage, **Redis** for caching, **JWT** for authentication, and **Docker** for containerized services.
 
 ## Features
 
-* **User Authentication**
+* User registration and login
+* JWT-based authentication
+* Protected API endpoints
+* User-specific notes
+* Create, read, update, and delete notes
+* Search notes by title or body
+* Pagination using `limit` and `skip`
+* Redis caching for note listing
+* Automatic cache invalidation when notes are created, updated, or deleted
+* PostgreSQL database
+* Dockerized PostgreSQL and Redis services
+* Automated API tests using Pytest
+* Validation and HTTP error handling
 
-  * Secure registration and login
-  * Passwords hashed with **bcrypt**
-  * JWT tokens for session management
+## Tech Stack
 
-* **Notes Management**
+| Technology | Purpose                      |
+| ---------- | ---------------------------- |
+| Python     | Backend programming          |
+| FastAPI    | REST API framework           |
+| PostgreSQL | Relational database          |
+| SQLAlchemy | ORM and database interaction |
+| Redis      | Caching                      |
+| JWT        | Authentication               |
+| Pydantic   | Request/response validation  |
+| Docker     | Containerized services       |
+| Pytest     | Automated testing            |
 
-  * Create, Read, Update, Delete notes
-  * Each user can access **only their own notes**
-  * Pagination support with `limit` and `skip`
+## Project Structure
 
-* **Data Validation & Error Handling**
+```text
+Notes-API/
+│
+├── Note/
+│   ├── database.py
+│   ├── hashing.py
+│   ├── main.py
+│   ├── models.py
+│   ├── oauth2.py
+│   ├── redis_client.py
+│   ├── schemas.py
+│   ├── token.py
+│   │
+│   ├── repository/
+│   │   ├── notes.py
+│   │   └── user.py
+│   │
+│   └── routers/
+│       ├── authentication.py
+│       ├── notes.py
+│       └── user.py
+│
+├── tests/
+│   ├── conftest.py
+│   ├── test_auth.py
+│   └── test_notes.py
+│
+├── docker-compose.yml
+└── requirements.txt
+```
 
-  * Input validation using **Pydantic**
-  * Proper error messages for unauthorized access and missing resources
+## Authentication
 
----
+The API uses **JWT Bearer authentication**.
 
-## Technologies Used
+The authentication flow is:
 
-* **Python 3.10+**
-* **FastAPI** – Web framework
-* **SQLAlchemy** – Database ORM
-* **SQLite** – Database
-* **Pydantic** – Data validation
-* **Passlib** – Password hashing
-* **Python-JOSE** – JWT authentication
+```text
+Register
+   ↓
+Login
+   ↓
+JWT Access Token
+   ↓
+Send token with protected requests
+   ↓
+FastAPI verifies token
+   ↓
+User accesses their own notes
+```
 
----
+Protected note endpoints require:
 
-## Getting Started
+```text
+Authorization: Bearer <access_token>
+```
+
+Users can only access notes belonging to their own account.
+
+## Notes API Endpoints
+
+### Notes
+
+| Method | Endpoint      | Description         | Authentication |
+| ------ | ------------- | ------------------- | -------------- |
+| GET    | `/notes/`     | Get user's notes    | Required       |
+| POST   | `/notes/`     | Create a note       | Required       |
+| GET    | `/notes/{id}` | Get a specific note | Required       |
+| PUT    | `/notes/{id}` | Update a note       | Required       |
+| DELETE | `/notes/{id}` | Delete a note       | Required       |
+
+### Pagination
+
+The notes listing endpoint supports pagination:
+
+```text
+GET /notes/?limit=10&skip=0
+```
+
+* `limit` — number of notes to return
+* `skip` — number of notes to skip
+
+### Search
+
+Notes can be searched by title or body:
+
+```text
+GET /notes/?search=python
+```
+
+## Redis Caching
+
+Redis is used to cache the results of the notes listing endpoint.
+
+The cache key includes:
+
+* User ID
+* Limit
+* Skip
+* Search query
+
+Cached results expire after **60 seconds**.
+
+When a user creates, updates, or deletes a note, the related user cache is cleared so that subsequent requests receive updated data.
+
+## Database
+
+The application uses **PostgreSQL** as its relational database.
+
+SQLAlchemy is used to interact with the database through Python models and database sessions.
+
+The application reads the database connection configuration from the environment rather than hard-coding credentials in the source code.
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+SECRET_KEY=your_secret_key
+DATABASE_URL=your_database_url
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+Do not commit your `.env` file or real secrets to GitHub.
+
+## Running the Project
 
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Shagunkeshari25/notes-api-fastapi.git
+
 cd notes-api-fastapi
 ```
 
 ### 2. Create and activate a virtual environment
 
-```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
+Windows PowerShell:
+
+```powershell
+python -m venv fastapi-env
+.\fastapi-env\Scripts\Activate.ps1
 ```
 
 ### 3. Install dependencies
@@ -62,60 +185,97 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Run the FastAPI server
+### 4. Configure environment variables
+
+Create the `.env` file using the variables shown above.
+
+### 5. Start PostgreSQL and Redis
+
+If using Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+Check running containers:
+
+```bash
+docker ps
+```
+
+### 6. Start FastAPI
 
 ```bash
 uvicorn Note.main:app --reload
 ```
 
-* API URL: http://127.0.0.1:8000
-* Swagger UI: http://127.0.0.1:8000/docs
-* ReDoc UI: http://127.0.0.1:8000/redoc
+The API will be available at:
 
----
+```text
+http://127.0.0.1:8000
+```
 
-## API Endpoints
+Interactive API documentation:
 
-### User
+```text
+http://127.0.0.1:8000/docs
+```
 
-* `POST /user/` – Create a new user
-* `GET /user/{id}` – Get user details
+## Testing
 
-### Authentication
+The project uses **Pytest** for automated API testing.
 
-* `POST /login` – Login and get JWT token
+Run:
 
-### Notes
+```bash
+pytest
+```
 
-* `GET /notes/` – Get all notes (with pagination)
-* `POST /notes/` – Create a new note
-* `GET /notes/{id}` – Get a specific note
-* `PUT /notes/{id}` – Update a note
-* `DELETE /notes/{id}` – Delete a note
+The test suite covers functionality including:
 
----
+* User registration
+* User login
+* JWT authentication
+* Note creation
+* Note retrieval
+* Note updating
+* Note deletion
+* Unauthorized note creation
+* User isolation between accounts
 
-## Usage
+For example, the tests verify that one user cannot access another user's private notes.
 
-1. Create a user using `POST /user/`
-2. Login using `POST /login`
-3. Authorize in Swagger UI
-4. Use Notes endpoints securely
+## Docker
 
----
+Docker is used to run the supporting services required by the application.
 
-## Notes
+The project uses:
 
-* JWT tokens expire in 30 minutes
-* Users can only access their own notes
-* API follows secure authentication and proper data handling
+* PostgreSQL container
+* Redis container
 
----
+FastAPI can be run locally with Uvicorn while PostgreSQL and Redis run through Docker Compose.
+
+## API Documentation
+
+FastAPI automatically provides interactive API documentation through Swagger UI:
+
+```text
+/docs
+```
+
+This allows endpoints to be viewed and tested directly from the browser.
 
 ## Future Improvements
 
-* Add search/filter for notes
-* Add user roles (admin/user)
-* Add password reset functionality
+Possible future improvements include:
 
----
+* Refresh token authentication
+* More advanced Redis usage
+* Rate limiting
+* API versioning
+* Production deployment
+* Logging and monitoring
+* CI/CD pipeline
+
+
