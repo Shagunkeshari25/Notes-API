@@ -2,6 +2,9 @@
 
 A backend REST API for creating, managing, and securely accessing personal notes. The project is built with **FastAPI** and uses **PostgreSQL** for persistent storage, **Redis** for caching, **JWT** for authentication, and **Docker** for containerized services.
 
+**Live demo:** https://notes-api-qwgc.onrender.com/docs
+*(Hosted on a free tier, so the first request may take about 50 seconds to wake up.)*
+
 ## Features
 
 * User registration and login
@@ -14,23 +17,25 @@ A backend REST API for creating, managing, and securely accessing personal notes
 * Redis caching for note listing
 * Automatic cache invalidation when notes are created, updated, or deleted
 * PostgreSQL database
-* Dockerized PostgreSQL and Redis services
+* Docker Compose setup for the full stack (app, PostgreSQL, Redis)
 * Automated API tests using Pytest
 * Validation and HTTP error handling
+* Deployed on Render
 
 ## Tech Stack
 
-| Technology | Purpose                      |
-| ---------- | ---------------------------- |
-| Python     | Backend programming          |
-| FastAPI    | REST API framework           |
-| PostgreSQL | Relational database          |
-| SQLAlchemy | ORM and database interaction |
-| Redis      | Caching                      |
-| JWT        | Authentication               |
-| Pydantic   | Request/response validation  |
-| Docker     | Containerized services       |
-| Pytest     | Automated testing            |
+| Technology | Purpose                                         |
+| ---------- | ----------------------------------------------- |
+| Python     | Backend programming                             |
+| FastAPI    | REST API framework                              |
+| PostgreSQL | Relational database                             |
+| SQLAlchemy | ORM and database interaction                    |
+| Redis      | Caching                                         |
+| JWT        | Authentication                                  |
+| Pydantic   | Request/response validation                     |
+| Docker     | Containerized services                          |
+| Pytest     | Automated testing                               |
+| Render     | Cloud hosting for the app, PostgreSQL and Redis |
 
 ## Project Structure
 
@@ -61,28 +66,21 @@ Notes-API/
 │   ├── test_auth.py
 │   └── test_notes.py
 │
+├── Dockerfile
 ├── docker-compose.yml
-└── requirements.txt
+├── .dockerignore
+├── pytest.ini
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ## Authentication
 
 The API uses **JWT Bearer authentication**.
 
-The authentication flow is:
-
 ```text
-Register
-   ↓
-Login
-   ↓
-JWT Access Token
-   ↓
-Send token with protected requests
-   ↓
-FastAPI verifies token
-   ↓
-User accesses their own notes
+Register → Login → JWT access token → Send token with requests
+→ FastAPI verifies token → User accesses their own notes
 ```
 
 Protected note endpoints require:
@@ -93,7 +91,14 @@ Authorization: Bearer <access_token>
 
 Users can only access notes belonging to their own account.
 
-## Notes API Endpoints
+## API Endpoints
+
+### Authentication and Users
+
+| Method | Endpoint | Description         |
+| ------ | -------- | ------------------- |
+| POST   | `/login` | Log in, get a JWT   |
+| POST   | `/user/` | Register a new user |
 
 ### Notes
 
@@ -105,47 +110,20 @@ Users can only access notes belonging to their own account.
 | PUT    | `/notes/{id}` | Update a note       | Required       |
 | DELETE | `/notes/{id}` | Delete a note       | Required       |
 
-### Pagination
+**Pagination:** `GET /notes/?limit=10&skip=0`
+`limit` is the number of notes to return, and `skip` is the number to skip.
 
-The notes listing endpoint supports pagination:
+**Search:** `GET /notes/?search=python`
 
-```text
-GET /notes/?limit=10&skip=0
-```
-
-* `limit` — number of notes to return
-* `skip` — number of notes to skip
-
-### Search
-
-Notes can be searched by title or body:
-
-```text
-GET /notes/?search=python
-```
+Interactive Swagger documentation is available at `/docs`.
 
 ## Redis Caching
 
-Redis is used to cache the results of the notes listing endpoint.
-
-The cache key includes:
-
-* User ID
-* Limit
-* Skip
-* Search query
-
-Cached results expire after **60 seconds**.
-
-When a user creates, updates, or deletes a note, the related user cache is cleared so that subsequent requests receive updated data.
+Redis caches the results of the notes listing endpoint. The cache key includes the user ID, limit, skip, and search query. Cached results expire after **60 seconds**. When a user creates, updates, or deletes a note, that user's cache is cleared so the next request returns fresh data.
 
 ## Database
 
-The application uses **PostgreSQL** as its relational database.
-
-SQLAlchemy is used to interact with the database through Python models and database sessions.
-
-The application reads the database connection configuration from the environment rather than hard-coding credentials in the source code.
+The app uses **PostgreSQL** through **SQLAlchemy** models and sessions. The connection is read from the `DATABASE_URL` environment variable and is not hard-coded.
 
 ## Environment Variables
 
@@ -153,129 +131,70 @@ Create a `.env` file in the project root:
 
 ```env
 SECRET_KEY=your_secret_key
-DATABASE_URL=your_database_url
-REDIS_HOST=localhost
-REDIS_PORT=6379
 ```
 
-Do not commit your `.env` file or real secrets to GitHub.
+`DATABASE_URL`, `REDIS_HOST`, and `REDIS_PORT` are set in `docker-compose.yml` (and as environment variables on Render). Do not commit your `.env` file or real secrets to GitHub.
 
 ## Running the Project
 
-### 1. Clone the repository
+```bash
+git clone https://github.com/Shagunkeshari25/Notes-API.git
+cd Notes-API
+```
+
+Create a `.env` file containing `SECRET_KEY=your_secret_key`, then run:
 
 ```bash
-git clone https://github.com/Shagunkeshari25/notes-api-fastapi.git
-
-cd notes-api-fastapi
+docker compose up --build
 ```
 
-### 2. Create and activate a virtual environment
-
-Windows PowerShell:
-
-```powershell
-python -m venv fastapi-env
-.\fastapi-env\Scripts\Activate.ps1
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure environment variables
-
-Create the `.env` file using the variables shown above.
-
-### 5. Start PostgreSQL and Redis
-
-If using Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-Check running containers:
-
-```bash
-docker ps
-```
-
-### 6. Start FastAPI
-
-```bash
-uvicorn Note.main:app --reload
-```
-
-The API will be available at:
-
-```text
-http://127.0.0.1:8000
-```
-
-Interactive API documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
+The API will be available at `http://localhost:8000/docs`.
 
 ## Testing
 
-The project uses **Pytest** for automated API testing.
+Create a virtual environment and run `pip install -r requirements.txt` first.
 
-Run:
+The tests use SQLite and a fake in-memory Redis, but importing the app still connects to PostgreSQL, so start it first:
 
 ```bash
+docker compose up -d postgres redis
 pytest
 ```
 
-The test suite covers functionality including:
+The test suite covers:
 
-* User registration
-* User login
+* User registration and login
 * JWT authentication
-* Note creation
-* Note retrieval
-* Note updating
-* Note deletion
+* Note creation, retrieval, updating, and deletion
 * Unauthorized note creation
 * User isolation between accounts
 
-For example, the tests verify that one user cannot access another user's private notes.
-
 ## Docker
 
-Docker is used to run the supporting services required by the application.
+Docker Compose defines three services:
 
-The project uses:
+| Service    | Purpose             |
+| ---------- | ------------------- |
+| `app`      | FastAPI application |
+| `postgres` | PostgreSQL database |
+| `redis`    | Redis cache         |
 
-* PostgreSQL container
-* Redis container
+PostgreSQL data is stored in a named Docker volume, so it persists across restarts.
 
-FastAPI can be run locally with Uvicorn while PostgreSQL and Redis run through Docker Compose.
-
-## API Documentation
-
-FastAPI automatically provides interactive API documentation through Swagger UI:
-
-```text
-/docs
+```bash
+docker compose up --build   # build and start everything
+docker compose down         # stop and remove containers (data is kept)
 ```
 
-This allows endpoints to be viewed and tested directly from the browser.
+## Deployment
+
+The app is deployed on **Render** from the project's `Dockerfile`, using a Render PostgreSQL database and a Render Key Value (Redis) instance. Configuration is provided through the environment variables `DATABASE_URL`, `REDIS_HOST`, `REDIS_PORT`, and `SECRET_KEY`.
 
 ## Future Improvements
 
-Possible future improvements include:
-
 * Refresh token authentication
-* More advanced Redis usage
 * Rate limiting
 * API versioning
-* Production deployment
+* Database migrations (for example Alembic) instead of creating tables at startup
 * Logging and monitoring
 * CI/CD pipeline
-
-
