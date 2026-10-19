@@ -81,7 +81,7 @@ def update(id: int, request: schemas.NoteCreate, db: Session, current_user: mode
             detail="Note not found"
         )
 
-    note_query.update(request.dict())
+    note_query.update(request.model_dump())
     db.commit()
     clear_user_cache(current_user.id)
     db.refresh(note)

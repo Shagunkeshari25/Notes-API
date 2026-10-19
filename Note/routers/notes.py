@@ -11,7 +11,6 @@ router = APIRouter(
 
 get_db = database.get_db
 
-# Get all notes with pagination and search
 @router.get("/", response_model=List[schemas.ShowNote])
 def all(
     limit: int = 10,
@@ -23,7 +22,6 @@ def all(
     return notes.get_all(db, limit, skip, search, current_user)   
 
 
-# Create a new note
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.ShowNote)
 def create(
     request: schemas.NoteCreate,
@@ -33,7 +31,6 @@ def create(
     return notes.create(request, db, current_user)
 
 
-# Delete a note
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def destroy(
     id: int,
@@ -43,7 +40,6 @@ def destroy(
     return notes.destroy(id, db, current_user)
 
 
-# Update a note
 @router.put("/{id}", status_code=status.HTTP_202_ACCEPTED, response_model=schemas.ShowNote)
 def update(
     id: int,
@@ -54,7 +50,6 @@ def update(
     return notes.update(id, request, db, current_user)
 
 
-# Get a single note
 @router.get("/{id}", status_code=200, response_model=schemas.ShowNote)
 def show(
     id: int,

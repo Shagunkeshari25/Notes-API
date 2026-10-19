@@ -39,7 +39,7 @@ class ShowUser(UserBase):
     model_config = {"from_attributes": True}
 
 # Fix forward references
-ShowNoteWithCreator.update_forward_refs()
+ShowNoteWithCreator.model_rebuild()
 
 # Auth Schemas
 class Login(BaseModel):

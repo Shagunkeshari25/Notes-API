@@ -8,25 +8,17 @@ router = APIRouter(tags=['Authentication'])
 
 @router.post('/login')
 def login(request: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
-    # Check if user exists
     user = db.query(models.User).filter(models.User.email == request.username).first()
-    
-    if not user:
+
+    if not user or not Hash.verify(user.password, request.password):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid credentials"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # FIXED: correct order (hashed_password, plain_password)
-    if not Hash.verify(user.password, request.password):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Incorrect password"
-        )
-    
-    # Generate JWT token with user_id
+
     access_token = token.create_access_token(data={"user_id": user.id})
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer"
